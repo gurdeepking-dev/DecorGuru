@@ -1,0 +1,9 @@
+{
+  "name": "DecorAI - Professional Interior Design Studio",
+  "description": "AI-powered house decoration app with 3D floor planning, AR furniture placement, and intelligent interior design suggestions.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

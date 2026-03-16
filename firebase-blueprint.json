@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "preferences": {
+          "type": "object",
+          "properties": {
+            "preferredStyle": { "type": "string" },
+            "budgetRange": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A house decoration project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "roomType": { "type": "string", "enum": ["Living Room", "Bedroom", "Kitchen", "Bathroom", "Office", "Balcony"] },
+        "style": { "type": "string" },
+        "originalImageUrl": { "type": "string" },
+        "generatedImageUrl": { "type": "string" },
+        "layout": { "type": "object" },
+        "furniture": { "type": "array", "items": { "type": "object" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name"]
+    },
+    "Furniture": {
+      "title": "Furniture",
+      "description": "Catalog item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "dimensions": { "type": "string" },
+        "modelUrl": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "buyLink": { "type": "string" },
+        "store": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "User projects"
+    },
+    "/catalog/{itemId}": {
+      "schema": "Furniture",
+      "description": "Furniture catalog"
+    }
+  }
+}
