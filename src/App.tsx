@@ -69,8 +69,20 @@ const Card = ({ children, className, title, subtitle, action }: any) => (
 export default function App() {
   const [user, loading] = useAuthState(auth);
   const [activePage, setActivePage] = useState<Page>('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [projects, setProjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (!mobile) setIsSidebarOpen(true);
+      else setIsSidebarOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Designer State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -179,18 +191,44 @@ export default function App() {
   );
 
   return (
-    <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans">
+    <div className="h-screen w-full bg-slate-50 flex overflow-hidden font-sans relative">
+      {/* Sidebar Overlay for Mobile */}
+      <AnimatePresence>
+        {isMobile && isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="absolute inset-0 bg-slate-900/50 z-[60] backdrop-blur-sm"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: isSidebarOpen ? 280 : 80 }}
-        className="bg-white border-r border-slate-200 flex flex-col h-full z-50"
+        animate={{ 
+          width: isSidebarOpen ? 280 : (isMobile ? 0 : 80),
+          x: isMobile && !isSidebarOpen ? -280 : 0
+        }}
+        className={cn(
+          "bg-white border-r border-slate-200 flex flex-col h-full z-[70]",
+          isMobile ? "absolute left-0 top-0 shadow-2xl" : "relative"
+        )}
       >
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-            <Home className="text-white" size={20} />
+        <div className="p-6 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
+              <Home className="text-white" size={20} />
+            </div>
+            {(isSidebarOpen || isMobile) && <span className="text-xl font-bold text-slate-900 tracking-tight">DecorAI</span>}
           </div>
-          {isSidebarOpen && <span className="text-xl font-bold text-slate-900 tracking-tight">DecorAI</span>}
+          {isMobile && (
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-400 hover:text-slate-600">
+              <X size={20} />
+            </button>
+          )}
         </div>
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
@@ -222,22 +260,22 @@ export default function App() {
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden pb-20 md:pb-0">
         {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0">
+        <header className="h-16 md:h-20 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500">
               <Menu size={20} />
             </button>
-            <h2 className="text-xl font-semibold text-slate-900 capitalize">{activePage}</h2>
+            <h2 className="text-lg md:text-xl font-semibold text-slate-900 capitalize">{activePage}</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="relative">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Search designs..." 
-                className="pl-10 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-emerald-500 rounded-xl text-sm w-64 transition-all outline-none"
+                className="pl-10 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-emerald-500 rounded-xl text-sm w-48 lg:w-64 transition-all outline-none"
               />
             </div>
             <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 relative">
@@ -248,7 +286,7 @@ export default function App() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <AnimatePresence mode="wait">
             {activePage === 'dashboard' && (
               <motion.div
@@ -258,10 +296,10 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-8"
               >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   <Card className="bg-emerald-500 text-white border-none" title="Total Projects" action={<Plus className="cursor-pointer" />}>
-                    <p className="text-4xl font-bold">{projects.length}</p>
-                    <p className="text-emerald-100 mt-1">Active designs in your studio</p>
+                    <p className="text-3xl md:text-4xl font-bold">{projects.length}</p>
+                    <p className="text-emerald-100 mt-1 text-sm">Active designs in your studio</p>
                   </Card>
                   <Card title="Recent Activity" subtitle="Your latest design updates">
                     <div className="space-y-4">
@@ -337,16 +375,16 @@ export default function App() {
                 exit={{ opacity: 0, x: -20 }}
                 className="max-w-5xl mx-auto space-y-8"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-slate-900">AI Room Designer</h1>
-                    <p className="text-slate-500">Upload a photo and let AI transform your space</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">AI Room Designer</h1>
+                    <p className="text-sm md:text-base text-slate-500">Upload a photo and let AI transform your space</p>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <select 
                       value={selectedStyle}
                       onChange={(e) => setSelectedStyle(e.target.value)}
-                      className="px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500"
+                      className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-emerald-500 text-sm"
                     >
                       {['Modern', 'Minimalist', 'Scandinavian', 'Japanese', 'Industrial', 'Luxury', 'Bohemian', 'Traditional', 'Indian'].map(s => (
                         <option key={s} value={s}>{s}</option>
@@ -355,10 +393,10 @@ export default function App() {
                     <button 
                       onClick={startDesign}
                       disabled={!selectedImage || isDesigning}
-                      className="px-6 py-2 bg-emerald-500 text-white rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+                      className="flex-1 md:flex-none px-6 py-2 bg-emerald-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20 text-sm"
                     >
-                      {isDesigning ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles size={18} />}
-                      Generate Design
+                      {isDesigning ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Sparkles size={16} />}
+                      Generate
                     </button>
                   </div>
                 </div>
@@ -465,52 +503,56 @@ export default function App() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="h-full flex flex-col gap-6"
+                className="h-full flex flex-col gap-4 md:gap-6"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-slate-900">3D Floor Planner</h1>
-                    <p className="text-slate-500">Design your room layout in interactive 3D</p>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">3D Floor Planner</h1>
+                    <p className="text-sm md:text-base text-slate-500">Design your room layout in interactive 3D</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50">2D View</button>
-                    <button className="px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium">3D View</button>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50">2D View</button>
+                    <button className="flex-1 md:flex-none px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium">3D View</button>
                   </div>
                 </div>
-                <div className="flex-1 min-h-0 flex gap-6">
-                  <div className="w-64 shrink-0 space-y-4">
-                    <Card title="Elements">
-                      <div className="grid grid-cols-2 gap-2">
-                        {['Wall', 'Window', 'Door', 'Sofa', 'Table', 'Bed'].map(e => (
-                          <button key={e} className="p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl text-xs font-semibold transition-colors flex flex-col items-center gap-2">
-                            <BoxIcon size={20} />
-                            {e}
-                          </button>
-                        ))}
-                      </div>
-                    </Card>
-                    <Card title="Properties">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase">Room Size</label>
-                          <input type="range" className="w-full mt-2 accent-emerald-500" />
+                <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-4 md:gap-6">
+                  <div className="w-full md:w-64 shrink-0 space-y-4 overflow-x-auto md:overflow-y-auto flex md:flex-col gap-4 md:gap-0">
+                    <div className="min-w-[200px] md:min-w-0 w-full">
+                      <Card title="Elements" className="p-4">
+                        <div className="grid grid-cols-3 md:grid-cols-2 gap-2">
+                          {['Wall', 'Window', 'Door', 'Sofa', 'Table', 'Bed'].map(e => (
+                            <button key={e} className="p-2 md:p-3 bg-slate-50 hover:bg-emerald-50 hover:text-emerald-600 rounded-xl text-[10px] md:text-xs font-semibold transition-colors flex flex-col items-center gap-1 md:gap-2">
+                              <BoxIcon size={16} />
+                              {e}
+                            </button>
+                          ))}
                         </div>
-                        <div>
-                          <label className="text-xs font-bold text-slate-400 uppercase">Wall Color</label>
-                          <div className="flex gap-2 mt-2">
-                            {['#ffffff', '#f1f5f9', '#e2e8f0', '#cbd5e1'].map(c => (
-                              <button key={c} className="w-6 h-6 rounded-full border border-slate-200" style={{ backgroundColor: c }} />
-                            ))}
+                      </Card>
+                    </div>
+                    <div className="min-w-[200px] md:min-w-0 w-full">
+                      <Card title="Properties" className="p-4">
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Room Size</label>
+                            <input type="range" className="w-full mt-2 accent-emerald-500" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Wall Color</label>
+                            <div className="flex gap-2 mt-2">
+                              {['#ffffff', '#f1f5f9', '#e2e8f0', '#cbd5e1'].map(c => (
+                                <button key={c} className="w-5 h-5 md:w-6 md:h-6 rounded-full border border-slate-200" style={{ backgroundColor: c }} />
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Card>
+                      </Card>
+                    </div>
                   </div>
-                  <div className="flex-1 relative">
+                  <div className="flex-1 relative min-h-[300px] md:min-h-0">
                     <ThreeDPlanner />
-                    <div className="absolute bottom-6 left-6 flex gap-2">
-                      <button className="p-3 bg-white/90 backdrop-blur rounded-xl shadow-lg text-slate-600 hover:text-emerald-500"><Camera size={20} /></button>
-                      <button className="p-3 bg-white/90 backdrop-blur rounded-xl shadow-lg text-slate-600 hover:text-emerald-500"><Plus size={20} /></button>
+                    <div className="absolute bottom-4 left-4 flex gap-2">
+                      <button className="p-2 md:p-3 bg-white/90 backdrop-blur rounded-xl shadow-lg text-slate-600 hover:text-emerald-500"><Camera size={18} /></button>
+                      <button className="p-2 md:p-3 bg-white/90 backdrop-blur rounded-xl shadow-lg text-slate-600 hover:text-emerald-500"><Plus size={18} /></button>
                     </div>
                   </div>
                 </div>
@@ -638,6 +680,36 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around p-2 z-[50]">
+          <button 
+            onClick={() => setActivePage('dashboard')}
+            className={cn("p-3 rounded-xl transition-all", activePage === 'dashboard' ? "text-emerald-500 bg-emerald-50" : "text-slate-400")}
+          >
+            <LayoutDashboard size={20} />
+          </button>
+          <button 
+            onClick={() => setActivePage('designer')}
+            className={cn("p-3 rounded-xl transition-all", activePage === 'designer' ? "text-emerald-500 bg-emerald-50" : "text-slate-400")}
+          >
+            <Sparkles size={20} />
+          </button>
+          <button 
+            onClick={() => setActivePage('planner')}
+            className={cn("p-3 rounded-xl transition-all", activePage === 'planner' ? "text-emerald-500 bg-emerald-50" : "text-slate-400")}
+          >
+            <Layers size={20} />
+          </button>
+          <button 
+            onClick={() => setActivePage('chat')}
+            className={cn("p-3 rounded-xl transition-all", activePage === 'chat' ? "text-emerald-500 bg-emerald-50" : "text-slate-400")}
+          >
+            <MessageSquare size={20} />
+          </button>
+        </nav>
+      )}
     </div>
   );
 }
