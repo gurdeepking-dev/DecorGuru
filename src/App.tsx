@@ -28,6 +28,7 @@ import { cn } from './lib/utils';
 import { ThreeDPlanner } from './components/ThreeDPlanner';
 import { geminiService } from './services/geminiService';
 import { collection, addDoc, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { compressImage } from './lib/imageUtils';
 
 // --- Types ---
 type Page = 'dashboard' | 'designer' | 'planner' | 'catalog' | 'chat';
@@ -86,6 +87,7 @@ export default function App() {
 
   // Designer State
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [isDesigning, setIsDesigning] = useState(false);
   const [designResult, setDesignResult] = useState<any>(null);
   const [selectedStyle, setSelectedStyle] = useState('Modern');
@@ -113,7 +115,16 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setSelectedImage(reader.result as string);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        try {
+          const compressed = await compressImage(base64, 1024, 1024, 0.7);
+          setSelectedImage(compressed);
+        } catch (err) {
+          console.error('Compression failed:', err);
+          setSelectedImage(base64);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -121,17 +132,31 @@ export default function App() {
   const startDesign = async () => {
     if (!selectedImage) return;
     setIsDesigning(true);
+    setGeneratedImageUrl(null);
     try {
-      const result = await geminiService.generateRoomDesign(selectedImage, selectedStyle);
+      const [result, generatedImg] = await Promise.all([
+        geminiService.generateRoomDesign(selectedImage, selectedStyle),
+        geminiService.generateRoomImage(selectedImage, selectedStyle)
+      ]);
+      
       setDesignResult(result);
+      setGeneratedImageUrl(generatedImg);
+      setShowOriginal(false);
       
       // Save to Firebase
       if (user) {
+        // Ensure images are compressed before saving to Firestore (1MB limit)
+        const [compressedOriginal, compressedGenerated] = await Promise.all([
+          compressImage(selectedImage, 800, 800, 0.6),
+          generatedImg ? compressImage(generatedImg, 800, 800, 0.6) : Promise.resolve(null)
+        ]);
+
         await addDoc(collection(db, 'projects'), {
           userId: user.uid,
           name: `New ${selectedStyle} Room`,
           style: selectedStyle,
-          originalImageUrl: selectedImage,
+          originalImageUrl: compressedOriginal,
+          generatedImageUrl: compressedGenerated,
           designData: result,
           createdAt: new Date().toISOString()
         });
@@ -329,9 +354,16 @@ export default function App() {
                   <Card title="My Projects" action={<button className="text-emerald-500 text-sm font-medium hover:underline">View All</button>}>
                     <div className="grid grid-cols-2 gap-4">
                       {projects.map(p => (
-                        <div key={p.id} className="group cursor-pointer">
+                        <div key={p.id} className="group cursor-pointer" onClick={() => {
+                          setSelectedImage(p.originalImageUrl);
+                          setGeneratedImageUrl(p.generatedImageUrl || null);
+                          setDesignResult(p.designData || null);
+                          setSelectedStyle(p.style);
+                          setActivePage('designer');
+                          setShowOriginal(false);
+                        }}>
                           <div className="aspect-video rounded-xl bg-slate-100 overflow-hidden relative mb-2">
-                            <img src={p.originalImageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={p.name} />
+                            <img src={p.generatedImageUrl || p.originalImageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={p.name} />
                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <ArrowRight className="text-white" size={24} />
                             </div>
@@ -411,7 +443,11 @@ export default function App() {
                     >
                       {selectedImage ? (
                         <>
-                          <img src={selectedImage} className={cn("w-full h-full object-cover transition-all duration-500", showOriginal ? "" : "brightness-110 contrast-110 saturate-110")} alt="Selected" />
+                          <img 
+                            src={showOriginal ? selectedImage : (generatedImageUrl || selectedImage)} 
+                            className={cn("w-full h-full object-cover transition-all duration-500", !showOriginal && !generatedImageUrl ? "brightness-110 contrast-110 saturate-110" : "")} 
+                            alt="Selected" 
+                          />
                           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 bg-white/90 backdrop-blur p-1 rounded-full shadow-lg">
                             <button 
                               onClick={() => setShowOriginal(true)}
@@ -427,7 +463,11 @@ export default function App() {
                             </button>
                           </div>
                           <button 
-                            onClick={() => setSelectedImage(null)}
+                            onClick={() => {
+                              setSelectedImage(null);
+                              setGeneratedImageUrl(null);
+                              setDesignResult(null);
+                            }}
                             className="absolute top-4 right-4 p-2 bg-white/90 backdrop-blur rounded-full shadow-lg text-slate-600 hover:text-red-500 transition-colors"
                           >
                             <X size={20} />

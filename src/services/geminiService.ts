@@ -63,5 +63,31 @@ export const geminiService = {
 
     const response = await chat.sendMessage({ message });
     return response.text;
+  },
+
+  async generateRoomImage(imageUri: string, style: string) {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              data: imageUri.split(',')[1],
+              mimeType: 'image/jpeg',
+            },
+          },
+          {
+            text: `Transform this room into a ${style} style interior. Maintain the same room structure but change the furniture, wall colors, flooring, and lighting to match the ${style} aesthetic. Return the edited image.`,
+          },
+        ],
+      },
+    });
+    
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
   }
 };
